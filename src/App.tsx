@@ -108,6 +108,7 @@ export default function App() {
   const powerUpsRef = useRef<PowerUp[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const keysRef = useRef<{ [key: string]: boolean }>({});
+  const touchRef = useRef<{ x: number; y: number; active: boolean }>({ x: 0, y: 0, active: false });
   const frameRef = useRef<number>(0);
   const lastEnemySpawnRef = useRef<number>(0);
   const lastPowerUpSpawnRef = useRef<number>(0);
@@ -123,11 +124,41 @@ export default function App() {
     const handleKeyUp = (e: KeyboardEvent) => (keysRef.current[e.code] = false);
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+
+    const handleTouch = (e: TouchEvent) => {
+      if (gameState.status !== 'playing') return;
+      e.preventDefault();
+      const touch = e.touches[0];
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = CANVAS_WIDTH / rect.width;
+      const scaleY = CANVAS_HEIGHT / rect.height;
+
+      touchRef.current = {
+        x: (touch.clientX - rect.left) * scaleX,
+        y: (touch.clientY - rect.top) * scaleY,
+        active: true
+      };
+    };
+
+    const handleTouchEnd = () => {
+      touchRef.current.active = false;
+    };
+
+    window.addEventListener('touchstart', handleTouch, { passive: false });
+    window.addEventListener('touchmove', handleTouch, { passive: false });
+    window.addEventListener('touchend', handleTouchEnd);
+
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('touchstart', handleTouch);
+      window.removeEventListener('touchmove', handleTouch);
+      window.removeEventListener('touchend', handleTouchEnd);
     };
-  }, []);
+  }, [gameState.status]);
 
   const resetGame = () => {
     const planeData = PLANES.find(p => p.id === gameState.selectedPlane) || PLANES[0];
@@ -289,6 +320,19 @@ export default function App() {
     if (keysRef.current['ArrowUp'] || keysRef.current['KeyW']) player.y -= player.speed;
     if (keysRef.current['ArrowDown'] || keysRef.current['KeyS']) player.y += player.speed;
 
+    // Touch Movement (Smooth follow)
+    if (touchRef.current.active) {
+      const targetX = touchRef.current.x - player.width / 2;
+      const targetY = touchRef.current.y - player.height / 2 - 40; // Offset finger so player can see the plane
+      
+      const dx = targetX - player.x;
+      const dy = targetY - player.y;
+      
+      // Faster response for touch
+      player.x += dx * 0.15;
+      player.y += dy * 0.15;
+    }
+
     // Bounds
     player.x = Math.max(0, Math.min(CANVAS_WIDTH - player.width, player.x));
     player.y = Math.max(0, Math.min(CANVAS_HEIGHT - player.height, player.y));
@@ -298,7 +342,9 @@ export default function App() {
     const hasSpreadShot = player.activeBuffs.some(b => b.type === 'spreadShot');
     const currentFireRate = hasRapidFire ? player.fireRate / 2 : player.fireRate;
 
-    if (keysRef.current['Space'] && adjustedTimestamp - player.lastShot > currentFireRate) {
+    const isShooting = keysRef.current['Space'] || touchRef.current.active;
+
+    if (isShooting && adjustedTimestamp - player.lastShot > currentFireRate) {
       const bulletDamage = player.type === 'blast' ? 25 : player.type === 'tech' ? 15 : 10;
       const bulletWidth = player.type === 'blast' ? 12 : 4;
       const bulletHeight = player.type === 'tech' ? 25 : 12;
@@ -995,9 +1041,9 @@ export default function App() {
               <div className="flex items-center gap-2">
                 <button
                   onClick={togglePause}
-                  className="p-2 rounded-lg bg-white/5 border border-white/10 text-white/50 hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
+                  className="p-3 sm:p-2 rounded-xl sm:rounded-lg bg-white/10 sm:bg-white/5 border border-white/20 sm:border-white/10 text-white/70 sm:text-white/50 hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
                 >
-                  <Pause className="w-4 h-4" />
+                  <Pause className="w-6 h-6 sm:w-4 sm:h-4" />
                 </button>
                 <div className="flex flex-col items-end">
                   <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Combat Score</span>
