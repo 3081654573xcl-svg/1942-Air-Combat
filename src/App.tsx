@@ -127,6 +127,10 @@ export default function App() {
 
     const handleTouch = (e: TouchEvent) => {
       if (gameState.status !== 'playing') return;
+      
+      // Prevent movement if touching UI elements
+      if ((e.target as HTMLElement).closest('button')) return;
+
       e.preventDefault();
       const touch = e.touches[0];
       const canvas = canvasRef.current;
@@ -1040,10 +1044,14 @@ export default function App() {
             <div className="flex flex-col items-end gap-2">
               <div className="flex items-center gap-2">
                 <button
-                  onClick={togglePause}
-                  className="p-3 sm:p-2 rounded-xl sm:rounded-lg bg-white/10 sm:bg-white/5 border border-white/20 sm:border-white/10 text-white/70 sm:text-white/50 hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    togglePause();
+                  }}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  className="p-4 sm:p-2 rounded-xl sm:rounded-lg bg-white/20 sm:bg-white/5 border border-white/30 sm:border-white/10 text-white sm:text-white/50 hover:text-white hover:bg-white/10 transition-all pointer-events-auto shadow-lg"
                 >
-                  <Pause className="w-6 h-6 sm:w-4 sm:h-4" />
+                  <Pause className="w-7 h-7 sm:w-4 sm:h-4 fill-current" />
                 </button>
                 <div className="flex flex-col items-end">
                   <span className="text-[10px] font-bold text-white/30 uppercase tracking-[0.2em]">Combat Score</span>
